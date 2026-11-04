@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>伊手 鳥獣出没マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho+B1:wght@700&display=swap">
+<style>
+/* 一画面の地図アプリ:上に帯(題・絞り込み)、地図、右(スマホは下)に一覧と投稿 */
+:root{
+  --bg:#f1f3ee; --surface:#ffffff; --fg:#1c2420; --muted:#5b6862; --line:#d3dad2;
+  --accent:#2f5d46; --accent-fg:#ffffff; --warn-bg:#fff4d6; --warn-fg:#6b4a00;
+  --map:#eef1ea; --paddy:#7fb0aa; --field:#c9a95e;
+  --rcom:#3d4a43; --village:#2f5d46; --pick:#d4361e;
+  --bear:#1f1915; --deer:#c07a26; --boar:#7b3c6f; --monkey:#2c7c6c; --other:#66717e;
+  --mark-ring:#ffffff;
+  --font-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --font-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121714; --surface:#1b221e; --fg:#e4eae5; --muted:#9aa89f; --line:#2c3732;
+  --accent:#7dbd98; --accent-fg:#0f1a14; --warn-bg:#3a2f12; --warn-fg:#f3d58a;
+  --map:#161c19; --rcom:#3d4a43; --village:#2f5d46; --pick:#ff6a4d;
+  --bear:#1f1915; --deer:#e0a14f; --boar:#c97bb8; --monkey:#5cc0aa; --other:#a2acb8;
+  --mark-ring:#ffffff; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.55;display:flex;flex-direction:column;overflow:hidden;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+header{background:var(--surface);border-bottom:1px solid var(--line);padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;z-index:5}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand h1{font-family:var(--font-display);font-size:19px;margin:0;letter-spacing:.04em;line-height:1.25}
+.brand small{color:var(--muted);font-size:11.5px;letter-spacing:.04em}
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 10px 3px 8px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px}
+.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1.5px var(--mark-ring),0 0 0 2.5px var(--c)}
+.chip[aria-pressed="false"]{opacity:.45}
+.chip[aria-pressed="false"] .dot{background:transparent}
+select.period{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 6px;font-size:13px}
+.demo{background:var(--warn-bg);color:var(--warn-fg);font-size:12.5px;padding:6px 16px;border-bottom:1px solid var(--line)}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+#mapwrap{position:relative;min-height:0;display:flex}
+#map{flex:1;background:var(--map);min-height:0}
+aside{background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;min-width:0;position:relative}
+#listView{display:flex;flex-direction:column;min-height:0;flex:1}
+.panel-head{padding:12px 16px 8px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line)}
+.panel-head h2{font-size:14px;margin:0;font-weight:700}
+.count{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.tally{display:flex;gap:10px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.tally b{color:var(--fg);font-variant-numeric:tabular-nums;font-weight:700}
+.list{flex:1;overflow-y:auto;min-height:0}
+.item{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:4px 10px;padding:10px 16px;border:0;border-bottom:1px solid var(--line);cursor:pointer;align-items:start;background:none;width:100%;text-align:left}
+.item:hover{background:var(--bg)}
+.item .dot{width:12px;height:12px;border-radius:50%;background:var(--c);margin-top:4px}
+.item .t{font-weight:700}
+.item .k{font-weight:400;color:var(--muted);font-size:12.5px;margin-left:4px}
+.item .w{font-size:12.5px;color:var(--muted)}
+.item .d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.item .cam{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:6px;color:var(--muted)}
+.empty{padding:20px 16px;color:var(--muted);font-size:13px}
+.empty strong{color:var(--fg);display:block;margin-bottom:4px}
+.panel-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.row2{display:flex;gap:6px}
+.row2 .btn{flex:1}
+.btn{border:0;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accent-fg);font-size:14px}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
+.btn:disabled{opacity:.5;cursor:default}
+.note{font-size:12px;color:var(--muted)}
+
+.sheet{position:absolute;inset:0;background:var(--surface);display:flex;flex-direction:column;z-index:6;min-height:0}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);gap:8px}
+.sheet-head h2{margin:0;font-size:15px}
+.x{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:4px 8px}
+.sheet-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.field label,.field .lab{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;letter-spacing:.04em}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{border-color:var(--fg);background:var(--surface);font-weight:700;box-shadow:inset 0 0 0 1px var(--fg)}
+.seg .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+input[type=text],input[type=number],input[type=datetime-local],textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 10px}
+textarea{min-height:72px;resize:vertical}
+.where{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;color:var(--accent);font-size:13px;text-decoration:underline}
+.photo-prev{max-width:100%;border-radius:6px;display:block}
+.err{color:var(--pick);font-size:13px}
+.detail-photo{width:100%;border-radius:8px;background:var(--bg);min-height:60px;display:grid;place-items:center;color:var(--muted);font-size:12px;overflow:hidden}
+.detail-photo img{width:100%;display:block}
+dl.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:0;font-size:13.5px}
+dl.kv dt{color:var(--muted)}
+dl.kv dd{margin:0;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.ext{color:var(--accent);font-size:13px}
+.danger{color:var(--pick);background:none;border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+
+.pickbar{position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:800;background:#1c2420;color:#fff;padding:8px 14px;border-radius:999px;font-size:13px;display:flex;gap:10px;align-items:center;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:calc(100% - 24px)}
+.pickbar button{background:none;border:1px solid currentColor;color:inherit;border-radius:999px;padding:2px 10px;cursor:pointer;font-size:12px;flex:none}
+.leaflet-container{font-family:var(--font-body)}
+.rlabel{font-size:12px;color:#26322c;font-weight:700;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff;pointer-events:none;transform:translate(-50%,-50%);letter-spacing:.06em}
+.legend{background:#fff;color:#3b4741;border:1px solid #c9d1c8;border-radius:6px;padding:6px 8px;font-size:11.5px;display:flex;flex-direction:column;gap:3px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:10px;display:inline-block;border:1.5px solid}
+.status{position:absolute;right:12px;bottom:24px;z-index:800;background:var(--surface);border:1px solid var(--line);padding:6px 10px;border-radius:6px;font-size:12px;color:var(--muted)}
+
+@media (max-width:760px){
+  header{padding-block:8px}
+  .brand h1{font-size:17px}
+  .filters{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}
+  .chip,select.period{flex:none}
+  main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+  aside{border-left:0;border-top:1px solid var(--line);max-height:42vh}
+  aside.open{max-height:none;position:fixed;inset:0;z-index:900;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .tally{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1 id="title">伊手 鳥獣出没マップ</h1>
+    <small id="subtitle"></small>
+  </div>
+  <div class="filters" id="filters" aria-label="表示の絞り込み"></div>
+</header>
+<div class="demo" id="demo" hidden>お試しモード:投稿はこの端末のブラウザの中だけに保存され、ほかの人には見えません(config.js に Apps Script の URL を設定すると共有されます)。</div>
+<main>
+  <div id="mapwrap">
+    <div id="map" role="application" aria-label="伊手地区の地図"></div>
+    <div class="pickbar" id="pickbar" hidden><span>出没した場所を地図で押してください</span><button id="pickCancel" type="button">やめる</button></div>
+    <div class="status" id="status">地図を読み込んでいます…</div>
+  </div>
+  <aside id="aside">
+    <div id="listView">
+      <div class="panel-head"><h2>出没の記録</h2><span class="count" id="count"></span></div>
+      <div class="tally" id="tally"></div>
+      <div class="list" id="list"></div>
+      <div class="panel-foot">
+        <div class="row2">
+          <button class="btn" id="addBtn" type="button">＋ 地図で場所を選んで投稿</button>
+        </div>
+        <button class="btn ghost" id="gpsBtn" type="button">現在地で投稿</button>
+        <div class="note" id="authNote">記録を読み込んでいます…</div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script>
+"use strict";
+const CFG = Object.assign({API_URL:"",TITLE:"伊手 鳥獣出没マップ",SUBTITLE:"",REFRESH_SEC:60}, window.CONFIG||{});
+const API = (CFG.API_URL||"").trim();
+const SPECIES=[{k:"bear",n:"クマ"},{k:"deer",n:"シカ"},{k:"boar",n:"イノシシ"},{k:"monkey",n:"サル"},{k:"other",n:"その他"}];
+const SPN=Object.fromEntries(SPECIES.map(s=>[s.k,s.n]));
+const SPK=Object.fromEntries(SPECIES.map(s=>[s.n,s.k]));
+const KINDS=["目撃","痕跡(足跡・フン)","農作物の被害","人身・物損"];
+const PERIODS=[["7","7日以内"],["30","30日以内"],["365","1年以内"],["all","すべて"]];
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+document.title=CFG.TITLE;$("#title").textContent=CFG.TITLE;$("#subtitle").textContent=CFG.SUBTITLE;
+$("#demo").hidden=!!API;
+
+let state={on:new Set(SPECIES.map(s=>s.k)),period:store.get("ide-period","30"),rows:[]};
+const myKeys=()=>store.get("ide-keys",{});   // 自分が投稿した記録の id → 削除キー
+
+/* ---------- 絞り込み ---------- */
+function buildFilters(){
+  const f=$("#filters");f.innerHTML="";
+  for(const s of SPECIES){
+    const b=document.createElement("button");b.type="button";b.className="chip";b.id="chip-"+s.k;
+    b.style.setProperty("--c",`var(--${s.k})`);b.setAttribute("aria-pressed",state.on.has(s.k));
+    b.innerHTML=`<span class="dot"></span>${s.n}`;
+    b.onclick=()=>{state.on.has(s.k)?state.on.delete(s.k):state.on.add(s.k);b.setAttribute("aria-pressed",state.on.has(s.k));render()};
+    f.appendChild(b);
+  }
+  const sel=document.createElement("select");sel.className="period";sel.id="period";sel.setAttribute("aria-label","期間");
+  for(const[v,n]of PERIODS){const o=document.createElement("option");o.value=v;o.textContent=n;if(v===state.period)o.selected=true;sel.appendChild(o)}
+  sel.onchange=()=>{state.period=sel.value;store.set("ide-period",sel.value);render()};
+  f.appendChild(sel);
+}
+
+/* ---------- 地図 ---------- */
+const map=L.map("map",{preferCanvas:true,minZoom:11,maxZoom:20});
+const gsi='<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
+const bases={
+  "淡色地図":L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",{attribution:gsi,maxNativeZoom:18,maxZoom:20}),
+  "標準地図":L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",{attribution:gsi,maxNativeZoom:18,maxZoom:20}),
+  "航空写真":L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{attribution:gsi,maxNativeZoom:18,maxZoom:20}),
+};
+bases["淡色地図"].addTo(map);
+map.attributionControl.setPrefix(false);
+map.attributionControl.addAttribution("筆ポリゴン:農林水産省/農業集落境界:農林業センサス");
+const canvas=L.canvas({padding:.4,tolerance:3});
+let D=null,fudeLayer=null,rcomLayer=null,villageLayer=null,labels=[],pickMarker=null,gpsMarker=null;
+const markLayer=L.layerGroup().addTo(map);
+let fudeBB=[],rcomBB=[];
+
+function bbox(c){let a=[1e9,1e9,-1e9,-1e9];for(const[x,y]of c){if(x<a[0])a[0]=x;if(y<a[1])a[1]=y;if(x>a[2])a[2]=x;if(y>a[3])a[3]=y}return a}
+function inRing(x,y,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c}return c}
+function inPoly(x,y,c){if(!inRing(x,y,c[0]))return false;for(let k=1;k<c.length;k++)if(inRing(x,y,c[k]))return false;return true}
+function locate(lat,lng){
+  let fid=null,m=null,r=null;
+  for(const b of fudeBB){if(lng<b.b[0]||lng>b.b[2]||lat<b.b[1]||lat>b.b[3])continue;if(inPoly(lng,lat,b.f[3].coordinates)){fid=b.f[0];m=b.f[1]===1?"田":"畑";r=b.f[2];break}}
+  if(r==null)for(const b of rcomBB){if(lng<b.b[0]||lng>b.b[2]||lat<b.b[1]||lat>b.b[3])continue;if(inPoly(lng,lat,b.g.coordinates)){r=b.i;break}}
+  return {fid,m,r,ku:r==null?"":rName(r)};
+}
+const rName=i=>{const x=D&&D.rcom.find(r=>r.i===i);return x?x.n:""};
+
+fetch("data/ide.json").then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>{
+  D=d;
+  const pc=css("--paddy"),fc=css("--field");
+  fudeLayer=L.geoJSON({type:"FeatureCollection",features:d.fude.map(f=>({type:"Feature",properties:{m:f[1]},geometry:f[3]}))},
+    {renderer:canvas,interactive:false,style:f=>{const c=f.properties.m===1?pc:fc;return{weight:.8,color:c,fillColor:c,fillOpacity:.28,opacity:.9}}}).addTo(map);
+  rcomLayer=L.geoJSON({type:"FeatureCollection",features:d.rcom.map(r=>({type:"Feature",properties:{},geometry:r.g}))},
+    {renderer:canvas,interactive:false,style:{weight:1.4,dashArray:"5 4",fill:false,opacity:.8,color:css("--rcom")}}).addTo(map);
+  villageLayer=L.geoJSON({type:"Feature",properties:{},geometry:d.village},{renderer:canvas,interactive:false,style:{weight:3,fill:false,opacity:.9,color:css("--village")}}).addTo(map);
+  fudeBB=d.fude.map(f=>({f,b:bbox(f[3].coordinates[0])}));
+  rcomBB=d.rcom.map(r=>({i:r.i,g:r.g,b:bbox(r.g.coordinates[0])}));
+  for(const r of d.rcom)labels.push(L.marker(r.lab,{interactive:false,keyboard:false,icon:L.divIcon({className:"",html:`<div class="rlabel">${esc(r.n)}</div>`,iconSize:[0,0]})}));
+  L.control.layers(bases,{"筆ポリゴン":fudeLayer,"農業集落の境":rcomLayer},{collapsed:true}).addTo(map);
+  const b=villageLayer.getBounds();map.fitBounds(b,{padding:[10,10]});map.setMaxBounds(b.pad(.4));
+  updateLabels();drawMarks();
+  $("#status").hidden=true;
+}).catch(e=>{$("#status").textContent="地図データ(data/ide.json)を読み込めませんでした。"});
+
+function updateLabels(){const z=map.getZoom();for(const l of labels){if(z>=13&&z<=17)l.addTo(map);else l.remove()}}
+map.on("zoomend",updateLabels);
+const legend=L.control({position:"bottomleft"});
+legend.onAdd=()=>{const d=L.DomUtil.create("div","legend");d.innerHTML=`<span><i style="background:${css("--paddy")}55;border-color:${css("--paddy")}"></i>田</span><span><i style="background:${css("--field")}55;border-color:${css("--field")}"></i>畑</span><span><i style="border:0;border-top:2px dashed ${css("--rcom")};height:0"></i>農業集落の境</span><span><i style="border:0;border-top:3px solid ${css("--village")};height:0"></i>旧伊手村</span>`;return d};
+legend.addTo(map);
+
+/* ---------- 記録 ---------- */
+function fromApi(o){   // シートの1行 → 画面で使う形
+  const at=String(o["見た日時"]||"").replace(" ","T");
+  return {id:o.id,sp:SPK[o["動物"]]||"other",spOther:o["動物名(その他)"]||"",kind:o["内容"]||"",n:+o["頭数"]||0,
+    atMs:new Date(at).getTime()||0,ku:o["集落"]||"",m:o["地目"]||"",fid:o.fid||"",lat:+o.lat,lng:+o.lng,
+    note:o["メモ"]||"",photo:o["写真ID"]||"",who:o["投稿者"]||""};
+}
+function visibleRows(){
+  const now=Date.now(),lim=state.period==="all"?Infinity:(+state.period)*864e5;
+  return state.rows.filter(r=>state.on.has(r.sp)&&now-(r.atMs||0)<=lim).sort((a,b)=>(b.atMs||0)-(a.atMs||0));
+}
+const pad=n=>String(n).padStart(2,"0");
+function fmt(ms){if(!ms)return"";const d=new Date(ms);return`${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
+function fmtFull(ms){if(!ms)return"";const d=new Date(ms);return`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`}
+function ageOpacity(ms){const days=(Date.now()-ms)/864e5;return days<=3?1:days<=14?.85:days<=60?.6:.4}
+function drawMarks(){
+  markLayer.clearLayers();
+  for(const r of visibleRows().slice().reverse()){
+    const c=css("--"+r.sp)||css("--other"),op=ageOpacity(r.atMs||0);
+    const m=L.circleMarker([r.lat,r.lng],{renderer:canvas,radius:r.sp==="bear"?9:7.5,color:css("--mark-ring"),weight:2,fillColor:c,fillOpacity:op,opacity:1});
+    m.on("click",()=>openDetail(r.id));m.addTo(markLayer);
+  }
+}
+const photoUrl=id=>`https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
+function render(){
+  const rows=visibleRows();
+  $("#count").textContent=`${rows.length}件`;
+  const t={};for(const r of rows)t[r.sp]=(t[r.sp]||0)+1;
+  $("#tally").innerHTML=SPECIES.filter(s=>state.on.has(s.k)).map(s=>`<span>${s.n} <b>${t[s.k]||0}</b></span>`).join("");
+  const list=$("#list");
+  if(!rows.length){
+    list.innerHTML=state.rows.length
+      ?`<div class="empty"><strong>この条件の記録はありません</strong>期間を広げるか、上の動物の種類を選び直してください。</div>`
+      :`<div class="empty"><strong>まだ記録はありません</strong>クマやシカ、イノシシを見かけたら、下のボタンから場所と時刻を登録してください。登録すると地図と一覧にすぐ表示されます。</div>`;
+  }else{
+    list.innerHTML="";
+    for(const r of rows){
+      const b=document.createElement("button");b.type="button";b.className="item";b.style.setProperty("--c",`var(--${r.sp})`);
+      const where=[r.ku,r.m].filter(Boolean).join("・")||"地区内";
+      const name=r.sp==="other"&&r.spOther?r.spOther:SPN[r.sp];
+      b.innerHTML=`<span class="dot"></span><span><span class="t">${esc(name)}${r.n>1?" "+r.n+"頭":""}</span><span class="k">${esc(r.kind)}</span>${r.photo?'<span class="cam">写真</span>':""}<br><span class="w">${esc(where)}${r.note?"|"+esc(r.note.slice(0,28))+(r.note.length>28?"…":""):""}</span></span><span class="d">${fmt(r.atMs)}</span>`;
+      b.onclick=()=>{map.setView([r.lat,r.lng],Math.max(map.getZoom(),16));openDetail(r.id)};
+      list.appendChild(b);
+    }
+  }
+  drawMarks();
+}
+
+/* 読み込み(API または お試しモード) */
+async function load(){
+  if(!API){state.rows=store.get("ide-demo-rows",[]).map(fromApi);render();$("#authNote").textContent="お試しモードです。投稿はこの端末にだけ保存されます。";return}
+  try{
+    const res=await fetch(API,{cache:"no-store"});const j=await res.json();
+    if(!j.ok)throw new Error(j.error||"error");
+    state.rows=j.rows.map(fromApi).filter(r=>isFinite(r.lat)&&isFinite(r.lng));render();
+    const d=new Date();$("#authNote").textContent=`${pad(d.getHours())}:${pad(d.getMinutes())} に更新。投稿した内容はこの地図を開く全員に見えます。`;
+  }catch(e){$("#authNote").textContent="記録を読み込めませんでした。電波の良い場所でページを開き直してください。"}
+}
+async function api(body){
+  if(!API){   // お試しモード
+    if(body.action==="add"){
+      const id="demo-"+Date.now().toString(36);
+      const row=Object.assign({},body.record,{id,"写真ID":"","登録日時":new Date().toISOString()});
+      const rows=store.get("ide-demo-rows",[]);rows.push(row);store.set("ide-demo-rows",rows);
+      if(body.photo){const ph=store.get("ide-demo-photos",{});ph[id]=body.photo;store.set("ide-demo-photos",ph)}
+      return{ok:true,row};
+    }
+    if(body.action==="delete"){store.set("ide-demo-rows",store.get("ide-demo-rows",[]).filter(r=>r.id!==body.id));return{ok:true}}
+  }
+  const res=await fetch(API,{method:"POST",body:JSON.stringify(body)});   // text/plain で送る(Apps Script向け)
+  return res.json();
+}
+
+/* ---------- シート(投稿・詳細) ---------- */
+function closeSheet(){const s=$("#sheet");if(s)s.remove();$("#aside").classList.remove("open");clearPick()}
+function openSheet(title,body){
+  closeSheet();
+  const s=document.createElement("div");s.className="sheet";s.id="sheet";
+  s.innerHTML=`<div class="sheet-head"><h2>${esc(title)}</h2><button class="x" type="button" id="sheetClose" aria-label="閉じる">×</button></div><div class="sheet-body" id="sheetBody"></div>`;
+  $("#aside").appendChild(s);$("#sheetBody").appendChild(body);$("#sheetClose").onclick=closeSheet;
+  if(matchMedia("(max-width:760px)").matches)$("#aside").classList.add("open");
+}
+function clearPick(){if(pickMarker){pickMarker.remove();pickMarker=null}}
+
+function openDetail(id){
+  const r=state.rows.find(x=>x.id===id);if(!r)return;
+  const box=document.createElement("div");box.style.cssText="display:flex;flex-direction:column;gap:14px";
+  const key=myKeys()[id];
+  const gsiLink=`https://maps.gsi.go.jp/#17/${r.lat.toFixed(6)}/${r.lng.toFixed(6)}/`;
+  const name=SPN[r.sp]+(r.spOther?`(${r.spOther})`:"");
+  let photo="";
+  if(r.photo)photo=`<div class="detail-photo"><img alt="投稿された写真" src="${esc(photoUrl(r.photo))}" onerror="this.parentNode.textContent='写真を表示できません'"></div>`;
+  else if(!API){const p=store.get("ide-demo-photos",{})[id];if(p)photo=`<div class="detail-photo"><img alt="投稿された写真" src="${p}"></div>`}
+  box.innerHTML=`${photo}
+    <dl class="kv">
+      <dt>動物</dt><dd><b>${esc(name)}</b>${r.n?` ${r.n}頭`:""}</dd>
+      <dt>内容</dt><dd>${esc(r.kind)}</dd>
+      <dt>日時</dt><dd>${fmtFull(r.atMs)}</dd>
+      <dt>場所</dt><dd>${esc(r.ku||"地区内")}${r.m?`・${esc(r.m)}`:""}${r.fid?`(筆 ${esc(r.fid)})`:""}</dd>
+      <dt>座標</dt><dd>${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}</dd>
+      <dt>投稿</dt><dd>${key?"この端末から投稿":esc(r.who||"地区の方")}</dd>
+      ${r.note?`<dt>メモ</dt><dd style="white-space:pre-wrap">${esc(r.note)}</dd>`:""}
+    </dl>
+    <a class="ext" href="${gsiLink}" target="_blank" rel="noopener">この地点を地理院地図で開く ↗</a>
+    ${key?`<div id="delArea"><button class="danger" type="button" id="delBtn">この記録を削除</button></div>`:""}`;
+  openSheet(`${SPN[r.sp]}の${r.kind.replace(/\(.*\)/,"")||"記録"}`,box);
+  const del=$("#delBtn");
+  if(del)del.onclick=()=>{
+    $("#delArea").innerHTML=`<div class="note" style="margin-bottom:6px">削除すると元に戻せません。</div><div style="display:flex;gap:8px"><button class="danger" type="button" id="delYes">削除する</button><button class="btn ghost" type="button" id="delNo">やめる</button></div>`;
+    $("#delNo").onclick=()=>openDetail(id);
+    $("#delYes").onclick=async()=>{
+      $("#delYes").disabled=true;
+      try{const j=await api({action:"delete",id,key});if(!j.ok)throw new Error(j.error);
+        const k=myKeys();delete k[id];store.set("ide-keys",k);state.rows=state.rows.filter(x=>x.id!==id);closeSheet();render()}
+      catch(e){$("#delArea").innerHTML=`<div class="err">削除できませんでした(${esc(e.message||"通信エラー")})。</div>`}
+    };
+  };
+}
+
+/* 投稿 */
+let draft=null;
+function startPick(){
+  closeSheet();draft=draft||{sp:"bear",kind:KINDS[0]};
+  $("#pickbar").hidden=false;map.getContainer().style.cursor="crosshair";
+  if(matchMedia("(max-width:760px)").matches)$("#aside").hidden=true;
+}
+function endPick(){$("#pickbar").hidden=true;map.getContainer().style.cursor="";$("#aside").hidden=false}
+$("#pickCancel").onclick=()=>{endPick();draft=null;clearPick()};
+function placeDraft(lat,lng){
+  Object.assign(draft,{lat,lng},locate(lat,lng));
+  clearPick();
+  pickMarker=L.circleMarker([lat,lng],{renderer:canvas,radius:11,color:css("--pick"),weight:3,fill:false}).addTo(map);
+  openForm();
+}
+map.on("click",e=>{if($("#pickbar").hidden||!draft)return;endPick();placeDraft(e.latlng.lat,e.latlng.lng)});
+$("#addBtn").onclick=()=>{draft=null;startPick()};
+$("#gpsBtn").onclick=()=>{
+  const btn=$("#gpsBtn");
+  if(!navigator.geolocation){btn.textContent="この端末では現在地が使えません";return}
+  btn.disabled=true;btn.textContent="現在地を調べています…";
+  navigator.geolocation.getCurrentPosition(p=>{
+    btn.disabled=false;btn.textContent="現在地で投稿";
+    const {latitude:lat,longitude:lng,accuracy}=p.coords;
+    if(gpsMarker)gpsMarker.remove();
+    gpsMarker=L.circle([lat,lng],{radius:Math.min(accuracy,300),color:css("--accent"),weight:1,fillOpacity:.1}).addTo(map);
+    if(villageLayer&&!villageLayer.getBounds().pad(.1).contains([lat,lng])){$("#authNote").textContent="現在地が伊手地区の外のようです。地図で場所を選んで投稿してください。";return}
+    map.setView([lat,lng],17);draft={sp:"bear",kind:KINDS[0],acc:Math.round(accuracy)};placeDraft(lat,lng);
+  },err=>{btn.disabled=false;btn.textContent="現在地で投稿";$("#authNote").textContent="現在地を取得できませんでした。位置情報の利用を許可するか、地図で場所を選んでください。"},
+  {enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+};
+function localNow(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)}
+function openForm(){
+  const f=document.createElement("form");f.style.cssText="display:flex;flex-direction:column;gap:14px";f.noValidate=true;
+  const where=draft.r!=null?`<b>${esc(draft.ku)}</b>${draft.m?`・${draft.m}(筆 ${draft.fid})`:"・筆の外(山林・道路など)"}`:"<b>伊手地区の外</b>(境界付近)";
+  f.innerHTML=`
+    <div class="where">場所:${where}<br><span class="note">${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}${draft.acc?`(誤差 約${draft.acc}m)`:""}</span> <button type="button" class="linkbtn" id="rePick">地図で選び直す</button></div>
+    <div class="field"><span class="lab">動物</span><div class="seg" id="segSp">${SPECIES.map(s=>`<button type="button" data-v="${s.k}" style="--c:var(--${s.k})" aria-pressed="${draft.sp===s.k}"><span class="dot"></span>${s.n}</button>`).join("")}</div></div>
+    <div class="field" id="otherWrap" ${draft.sp==="other"?"":"hidden"}><label for="fOther">動物の名前</label><input type="text" id="fOther" maxlength="30" placeholder="例:カモシカ、ハクビシン"></div>
+    <div class="field"><span class="lab">内容</span><div class="seg" id="segKind">${KINDS.map(k=>`<button type="button" data-v="${k}" aria-pressed="${draft.kind===k}">${k}</button>`).join("")}</div></div>
+    <div style="display:grid;grid-template-columns:90px minmax(0,1fr);gap:10px">
+      <div class="field"><label for="fN">頭数</label><input type="number" id="fN" min="0" max="99" value="1" inputmode="numeric"></div>
+      <div class="field"><label for="fAt">見た日時</label><input type="datetime-local" id="fAt" value="${localNow()}"></div>
+    </div>
+    <div class="field"><label for="fNote">メモ</label><textarea id="fNote" maxlength="400" placeholder="例:親子2頭。道路を横断して東の林へ。"></textarea></div>
+    <div class="field"><label for="fPhoto">写真(任意・1枚)</label><input type="file" id="fPhoto" accept="image/*"><div id="photoPrev" style="margin-top:8px"></div><div class="note">送信前に自動で縮小します。人の顔や車のナンバーが写らないようにしてください。</div></div>
+    <div class="field"><label for="fWho">お名前・組(任意)</label><input type="text" id="fWho" maxlength="20" placeholder="例:前沢 2組 佐藤" value="${esc(store.get("ide-who",""))}"></div>
+    <div id="formErr" class="err" hidden></div>
+    <button class="btn" type="submit" id="fSubmit">この内容で投稿</button>`;
+  openSheet("出没を投稿",f);
+  $("#rePick").onclick=startPick;
+  const seg=(id,key,after)=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{draft[key]=b.dataset.v;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));after&&after()});
+  seg("#segSp","sp",()=>{$("#otherWrap").hidden=draft.sp!=="other"});seg("#segKind","kind");
+  let photo=null;
+  $("#fPhoto").onchange=async e=>{
+    const file=e.target.files[0];$("#photoPrev").innerHTML="";photo=null;if(!file)return;
+    $("#photoPrev").innerHTML='<span class="note">縮小しています…</span>';
+    try{photo=await shrink(file);$("#photoPrev").innerHTML=`<img class="photo-prev" alt="送信する写真" src="${photo}"><span class="note">${Math.round(photo.length*.75/1024)} KB</span>`}
+    catch(err){$("#photoPrev").innerHTML='<span class="err">この写真は読み込めませんでした。JPEGかPNGを選んでください。</span>'}
+  };
+  f.onsubmit=async ev=>{
+    ev.preventDefault();
+    const err=$("#formErr");err.hidden=true;
+    const atStr=$("#fAt").value,atMs=new Date(atStr).getTime();
+    if(!atStr||isNaN(atMs)){err.textContent="見た日時を入れてください。";err.hidden=false;return}
+    if(atMs>Date.now()+36e5){err.textContent="見た日時が未来になっています。";err.hidden=false;return}
+    const btn=$("#fSubmit");btn.disabled=true;btn.textContent="送信しています…";
+    const who=$("#fWho").value.trim();store.set("ide-who",who);
+    const key=Array.from(crypto.getRandomValues(new Uint8Array(18)),b=>b.toString(16).padStart(2,"0")).join("");
+    const record={"見た日時":atStr.replace("T"," "),"動物":SPN[draft.sp],"動物名(その他)":draft.sp==="other"?$("#fOther").value.trim():"",
+      "内容":draft.kind,"頭数":$("#fN").value,"集落":draft.ku||"","地目":draft.m||"",fid:draft.fid||"",
+      lat:+draft.lat.toFixed(6),lng:+draft.lng.toFixed(6),"メモ":$("#fNote").value.trim(),"投稿者":who};
+    try{
+      const j=await api({action:"add",record,photo,key});
+      if(!j.ok)throw new Error(j.error||"送信できませんでした");
+      const k=myKeys();k[j.row.id]=key;store.set("ide-keys",k);
+      const row=fromApi(j.row);state.rows.push(row);
+      if(state.period!=="all"&&Date.now()-row.atMs>(+state.period)*864e5){state.period="all";$("#period").value="all"}
+      if(!state.on.has(row.sp)){state.on.add(row.sp);$("#chip-"+row.sp).setAttribute("aria-pressed","true")}
+      draft=null;closeSheet();render();
+    }catch(e){
+      btn.disabled=false;btn.textContent="この内容で投稿";
+      err.textContent=e.message&&!/fetch|network/i.test(e.message)?e.message:"送信できませんでした。電波の良い場所でもう一度押してください。";err.hidden=false;
+    }
+  };
+}
+function shrink(file){
+  return new Promise((ok,ng)=>{
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{
+      let max=1600;
+      for(let t=0;t<6;t++){
+        const s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement("canvas");
+        c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        for(const q of[.75,.62,.5]){const d=c.toDataURL("image/jpeg",q);if(d.length<(API?600000:190000)){URL.revokeObjectURL(url);return ok(d)}}
+        max=Math.round(max*.75);
+      }
+      URL.revokeObjectURL(url);ng(new Error("too_big"));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);ng(new Error("bad_image"))};
+    img.src=url;
+  });
+}
+
+buildFilters();render();load();
+if(API){setInterval(()=>{if(document.visibilityState==="visible"&&!$("#sheet"))load()},Math.max(20,CFG.REFRESH_SEC)*1000);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")load()})}
+</script>
+</body>
+</html>
