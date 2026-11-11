@@ -13,7 +13,7 @@
   --bg:#f1f3ee; --surface:#ffffff; --fg:#1c2420; --muted:#5b6862; --line:#d3dad2;
   --accent:#2f5d46; --accent-fg:#ffffff; --warn-bg:#fff4d6; --warn-fg:#6b4a00;
   --map:#eef1ea; --paddy:#7fb0aa; --field:#c9a95e;
-  --rcom:#3d4a43; --village:#2f5d46; --pick:#d4361e;
+  --rcom:#ffd400; --village:#2f5d46; --pick:#d4361e;
   --bear:#1f1915; --deer:#c07a26; --boar:#7b3c6f; --monkey:#2c7c6c; --other:#66717e;
   --mark-ring:#ffffff;
   --font-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
@@ -23,7 +23,7 @@
 @media (prefers-color-scheme: dark){:root{
   --bg:#121714; --surface:#1b221e; --fg:#e4eae5; --muted:#9aa89f; --line:#2c3732;
   --accent:#7dbd98; --accent-fg:#0f1a14; --warn-bg:#3a2f12; --warn-fg:#f3d58a;
-  --map:#161c19; --rcom:#3d4a43; --village:#2f5d46; --pick:#ff6a4d;
+  --map:#161c19; --rcom:#ffd400; --village:#2f5d46; --pick:#ff6a4d;
   --bear:#1f1915; --deer:#e0a14f; --boar:#c97bb8; --monkey:#5cc0aa; --other:#a2acb8;
   --mark-ring:#ffffff; color-scheme:dark;
 }}
@@ -235,7 +235,7 @@ fetch("data/ide.json").then(r=>{if(!r.ok)throw new Error(r.status);return r.json
   fudeLayer=L.geoJSON({type:"FeatureCollection",features:d.fude.map(f=>({type:"Feature",properties:{m:f[1]},geometry:f[3]}))},
     {renderer:canvas,interactive:false,style:f=>{const c=f.properties.m===1?pc:fc;return{weight:.8,color:c,fillColor:c,fillOpacity:.28,opacity:.9}}}).addTo(map);
   rcomLayer=L.geoJSON({type:"FeatureCollection",features:d.rcom.map(r=>({type:"Feature",properties:{},geometry:r.g}))},
-    {renderer:canvas,interactive:false,style:{weight:1.4,dashArray:"5 4",fill:false,opacity:.8,color:css("--rcom")}}).addTo(map);
+    {renderer:canvas,interactive:false,style:{weight:3.5,dashArray:"10 6",fill:false,opacity:1,color:css("--rcom")}}).addTo(map);
   villageLayer=L.geoJSON({type:"Feature",properties:{},geometry:d.village},{renderer:canvas,interactive:false,style:{weight:3,fill:false,opacity:.9,color:css("--village")}}).addTo(map);
   fudeBB=d.fude.map(f=>({f,b:bbox(f[3].coordinates[0])}));
   rcomBB=d.rcom.map(r=>({i:r.i,g:r.g,b:bbox(r.g.coordinates[0])}));
@@ -249,7 +249,7 @@ fetch("data/ide.json").then(r=>{if(!r.ok)throw new Error(r.status);return r.json
 function updateLabels(){const z=map.getZoom();for(const l of labels){if(z>=13&&z<=17)l.addTo(map);else l.remove()}}
 map.on("zoomend",updateLabels);
 const legend=L.control({position:"bottomleft"});
-legend.onAdd=()=>{const d=L.DomUtil.create("div","legend");d.innerHTML=`<span><i style="background:${css("--paddy")}55;border-color:${css("--paddy")}"></i>田</span><span><i style="background:${css("--field")}55;border-color:${css("--field")}"></i>畑</span><span><i style="border:0;border-top:2px dashed ${css("--rcom")};height:0"></i>農業集落の境</span><span><i style="border:0;border-top:3px solid ${css("--village")};height:0"></i>旧伊手村</span>`;return d};
+legend.onAdd=()=>{const d=L.DomUtil.create("div","legend");d.innerHTML=`<span><i style="background:${css("--paddy")}55;border-color:${css("--paddy")}"></i>田</span><span><i style="background:${css("--field")}55;border-color:${css("--field")}"></i>畑</span><span><i style="border:0;border-top:3.5px dashed ${css("--rcom")};height:0"></i>農業集落の境</span><span><i style="border:0;border-top:3px solid ${css("--village")};height:0"></i>旧伊手村</span>`;return d};
 legend.addTo(map);
 
 /* ---------- 記録 ---------- */
