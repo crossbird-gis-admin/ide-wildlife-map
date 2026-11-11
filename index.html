@@ -210,7 +210,7 @@ const bases={
   "標準地図":L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",{attribution:gsi,maxNativeZoom:18,maxZoom:20}),
   "航空写真":L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{attribution:gsi,maxNativeZoom:18,maxZoom:20}),
 };
-bases["淡色地図"].addTo(map);
+bases["航空写真"].addTo(map);   // 最初に表示する背景地図
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution("筆ポリゴン:農林水産省/農業集落境界:農林業センサス");
 const canvas=L.canvas({padding:.4,tolerance:3});
