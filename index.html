@@ -94,7 +94,10 @@ aside{background:var(--surface);border-left:1px solid var(--line);display:flex;f
 .bear-ico .s{fill:#d9c3a5}
 .bear-ico .e{fill:#ffffff}
 .bear-ico .n{fill:var(--bear)}
-.bear-mk{width:30px;height:30px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+/* 地図上のクマ:航空写真の上でも目立つよう、赤い縁の白い円に入れる。3日以内の記録は赤い輪が広がる */
+.bear-mk{position:relative;width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid #e8231a;padding:4px;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.55)}
+.bear-mk.new::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid #e8231a;animation:bearPulse 1.8s ease-out infinite;pointer-events:none}
+@keyframes bearPulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.9);opacity:0}}
 input[type=text],input[type=number],input[type=datetime-local],textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 10px}
 textarea{min-height:72px;resize:vertical}
 .where{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
@@ -128,7 +131,7 @@ dl.kv dd{margin:0;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:an
   aside.open{max-height:none;position:fixed;inset:0;z-index:900;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
   .tally{display:none}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){*,*::after{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -272,7 +275,7 @@ function drawMarks(){
   for(const r of visibleRows().slice().reverse()){
     const c=css("--"+r.sp)||css("--other"),op=ageOpacity(r.atMs||0);
     const m=r.sp==="bear"
-      ?L.marker([r.lat,r.lng],{zIndexOffset:500,title:"クマ",icon:L.divIcon({className:"",html:`<div class="bear-mk" style="opacity:${op}">${BEAR_SVG}</div>`,iconSize:[30,30],iconAnchor:[15,15]})})
+      ?L.marker([r.lat,r.lng],{zIndexOffset:500,title:"クマ",icon:L.divIcon({className:"",html:`<div class="bear-mk${Date.now()-(r.atMs||0)<=3*864e5?" new":""}" style="opacity:${Math.max(op,.7)}">${BEAR_SVG}</div>`,iconSize:[40,40],iconAnchor:[20,20]})})
       :L.circleMarker([r.lat,r.lng],{renderer:canvas,radius:7.5,color:css("--mark-ring"),weight:2,fillColor:c,fillOpacity:op,opacity:1});
     m.on("click",()=>openDetail(r.id));m.addTo(markLayer);
   }
