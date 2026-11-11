@@ -40,10 +40,11 @@ header{background:var(--surface);border-bottom:1px solid var(--line);padding-blo
 .brand h1{font-family:var(--font-display);font-size:19px;margin:0;letter-spacing:.04em;line-height:1.25}
 .brand small{color:var(--muted);font-size:11.5px;letter-spacing:.04em}
 .filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto}
-.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 10px 3px 8px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px}
-.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1.5px var(--mark-ring),0 0 0 2.5px var(--c)}
-.chip[aria-pressed="false"]{opacity:.45}
-.chip[aria-pressed="false"] .dot{background:transparent}
+.chk{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px 3px 6px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;user-select:none}
+.chk input{margin:0;width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.chk .dot{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1.5px var(--mark-ring),0 0 0 2.5px var(--c)}
+.chk:has(input:not(:checked)){opacity:.55}
+.chk.all{font-weight:700}
 select.period{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 6px;font-size:13px}
 .demo{background:var(--warn-bg);color:var(--warn-fg);font-size:12.5px;padding:6px 16px;border-bottom:1px solid var(--line)}
 
@@ -89,14 +90,21 @@ aside{background:var(--surface);border-left:1px solid var(--line);display:flex;f
 /* クマだけは丸ではなく顔のアイコン */
 .dot.ico{background:none!important;box-shadow:none!important;border-radius:0;width:18px;height:18px;display:inline-block;flex:none}
 .item .dot.ico{width:18px;height:18px;margin-top:1px;margin-left:-3px}
-.dot.ico svg,.bear-mk svg{width:100%;height:100%;display:block}
+.dot.ico svg,.mk svg{width:100%;height:100%;display:block}
 .bear-ico .b{fill:var(--bear);stroke:var(--mark-ring);stroke-width:1.1;paint-order:stroke}
 .bear-ico .s{fill:#d9c3a5}
 .bear-ico .e{fill:#ffffff}
 .bear-ico .n{fill:var(--bear)}
 /* 地図上のクマ:航空写真の上でも目立つよう、赤い縁の白い円に入れる。3日以内の記録は赤い輪が広がる */
-.bear-mk{position:relative;width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid #e8231a;padding:4px;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.55)}
-.bear-mk.new::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid #e8231a;animation:bearPulse 1.8s ease-out infinite;pointer-events:none}
+.deer-ico .h{fill:var(--deer);stroke:var(--mark-ring);stroke-width:1;paint-order:stroke}
+.deer-ico .a{fill:none;stroke:#6b4423;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.deer-ico .s{fill:#f3e3c8}
+.deer-ico .e,.deer-ico .n{fill:#2a1d12}
+/* 地図上のアイコン:航空写真の上でも目立つよう、色付きの縁の白い円に入れる。3日以内の記録は輪が広がる */
+.mk{position:relative;width:40px;height:40px;border-radius:50%;background:#fff;border:3px solid var(--ring);padding:4px;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.55)}
+.mk-bear{--ring:#e8231a}
+.mk-deer{--ring:#8f5419;width:36px;height:36px;padding:3px}
+.mk.new::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--ring);animation:bearPulse 1.8s ease-out infinite;pointer-events:none}
 @keyframes bearPulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.9);opacity:0}}
 input[type=text],input[type=number],input[type=datetime-local],textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 10px}
 textarea{min-height:72px;resize:vertical}
@@ -125,7 +133,7 @@ dl.kv dd{margin:0;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:an
   header{padding-block:8px}
   .brand h1{font-size:17px}
   .filters{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}
-  .chip,select.period{flex:none}
+  .chk,select.period{flex:none}
   main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
   aside{border-left:0;border-top:1px solid var(--line);max-height:42vh}
   aside.open{max-height:none;position:fixed;inset:0;z-index:900;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -174,7 +182,9 @@ const API = (CFG.API_URL||"").trim();
 const SPECIES=[{k:"bear",n:"クマ"},{k:"deer",n:"シカ"},{k:"boar",n:"イノシシ"},{k:"monkey",n:"サル"},{k:"other",n:"その他"}];
 const SPN=Object.fromEntries(SPECIES.map(s=>[s.k,s.n]));
 const BEAR_SVG='<svg class="bear-ico" viewBox="0 0 24 24" aria-hidden="true"><circle class="b" cx="5.6" cy="6.2" r="3.4"/><circle class="b" cx="18.4" cy="6.2" r="3.4"/><ellipse class="b" cx="12" cy="13.4" rx="8.6" ry="8"/><circle class="e" cx="8.6" cy="11.3" r="1.25"/><circle class="e" cx="15.4" cy="11.3" r="1.25"/><ellipse class="s" cx="12" cy="16.3" rx="3.9" ry="3"/><ellipse class="n" cx="12" cy="15.1" rx="1.6" ry="1.1"/></svg>';
-const dotHtml=k=>k==="bear"?`<span class="dot ico">${BEAR_SVG}</span>`:'<span class="dot"></span>';
+const DEER_SVG='<svg class="deer-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="a" d="M9.4 7.6 7.2 2.2M8.1 4.6 5.1 3.6M8.8 6.3 5.6 6.9M14.6 7.6l2.2-5.4M15.9 4.6l3-1M15.2 6.3l3.2.6"/><ellipse class="h" cx="6.2" cy="9.6" rx="2.7" ry="1.3" transform="rotate(-24 6.2 9.6)"/><ellipse class="h" cx="17.8" cy="9.6" rx="2.7" ry="1.3" transform="rotate(24 17.8 9.6)"/><path class="h" d="M12 7c3.4 0 4.5 2.7 4 5.4l-1.7 7.1c-.5 1.9-4.1 1.9-4.6 0L8 12.4C7.5 9.7 8.6 7 12 7z"/><circle class="e" cx="10.2" cy="11.7" r=".95"/><circle class="e" cx="13.8" cy="11.7" r=".95"/><ellipse class="s" cx="12" cy="18.7" rx="2.1" ry="1.5"/><ellipse class="n" cx="12" cy="19.3" rx="1.1" ry=".75"/></svg>';
+const ICONS={bear:BEAR_SVG,deer:DEER_SVG};
+const dotHtml=k=>ICONS[k]?`<span class="dot ico">${ICONS[k]}</span>`:'<span class="dot"></span>';
 const SPK=Object.fromEntries(SPECIES.map(s=>[s.n,s.k]));
 const KINDS=["目撃","痕跡(足跡・フン)","農作物の被害","人身・物損"];
 const PERIODS=[["7","7日以内"],["30","30日以内"],["365","1年以内"],["all","すべて"]];
@@ -192,13 +202,19 @@ const myKeys=()=>store.get("ide-keys",{});   // 自分が投稿した記録の i
 /* ---------- 絞り込み ---------- */
 function buildFilters(){
   const f=$("#filters");f.innerHTML="";
+  const all=document.createElement("label");all.className="chk all";
+  all.innerHTML=`<input type="checkbox" id="chk-all">すべて`;f.appendChild(all);
   for(const s of SPECIES){
-    const b=document.createElement("button");b.type="button";b.className="chip";b.id="chip-"+s.k;
-    b.style.setProperty("--c",`var(--${s.k})`);b.setAttribute("aria-pressed",state.on.has(s.k));
-    b.innerHTML=`${dotHtml(s.k)}${s.n}`;
-    b.onclick=()=>{state.on.has(s.k)?state.on.delete(s.k):state.on.add(s.k);b.setAttribute("aria-pressed",state.on.has(s.k));render()};
-    f.appendChild(b);
+    const l=document.createElement("label");l.className="chk";l.style.setProperty("--c",`var(--${s.k})`);
+    l.innerHTML=`<input type="checkbox" id="chk-${s.k}" ${state.on.has(s.k)?"checked":""}>${dotHtml(s.k)}${s.n}`;
+    l.querySelector("input").onchange=e=>{e.target.checked?state.on.add(s.k):state.on.delete(s.k);syncAll();render()};
+    f.appendChild(l);
   }
+  $("#chk-all").onchange=e=>{
+    for(const s of SPECIES){$("#chk-"+s.k).checked=e.target.checked;e.target.checked?state.on.add(s.k):state.on.delete(s.k)}
+    syncAll();render();
+  };
+  syncAll();
   const sel=document.createElement("select");sel.className="period";sel.id="period";sel.setAttribute("aria-label","期間");
   for(const[v,n]of PERIODS){const o=document.createElement("option");o.value=v;o.textContent=n;if(v===state.period)o.selected=true;sel.appendChild(o)}
   sel.onchange=()=>{state.period=sel.value;store.set("ide-period",sel.value);render()};
@@ -269,13 +285,18 @@ function visibleRows(){
 const pad=n=>String(n).padStart(2,"0");
 function fmt(ms){if(!ms)return"";const d=new Date(ms);return`${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
 function fmtFull(ms){if(!ms)return"";const d=new Date(ms);return`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`}
+function syncAll(){   // 「すべて」の状態(全部・一部・なし)を合わせる
+  const a=$("#chk-all");if(!a)return;const n=state.on.size;
+  a.checked=n===SPECIES.length;a.indeterminate=n>0&&n<SPECIES.length;
+}
 function ageOpacity(ms){const days=(Date.now()-ms)/864e5;return days<=3?1:days<=14?.85:days<=60?.6:.4}
 function drawMarks(){
   markLayer.clearLayers();
   for(const r of visibleRows().slice().reverse()){
     const c=css("--"+r.sp)||css("--other"),op=ageOpacity(r.atMs||0);
-    const m=r.sp==="bear"
-      ?L.marker([r.lat,r.lng],{zIndexOffset:500,title:"クマ",icon:L.divIcon({className:"",html:`<div class="bear-mk${Date.now()-(r.atMs||0)<=3*864e5?" new":""}" style="opacity:${Math.max(op,.7)}">${BEAR_SVG}</div>`,iconSize:[40,40],iconAnchor:[20,20]})})
+    const sz=r.sp==="bear"?40:36,isNew=Date.now()-(r.atMs||0)<=3*864e5;
+    const m=ICONS[r.sp]
+      ?L.marker([r.lat,r.lng],{zIndexOffset:r.sp==="bear"?600:400,title:SPN[r.sp],icon:L.divIcon({className:"",html:`<div class="mk mk-${r.sp}${isNew?" new":""}" style="opacity:${Math.max(op,.7)}">${ICONS[r.sp]}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]})})
       :L.circleMarker([r.lat,r.lng],{renderer:canvas,radius:7.5,color:css("--mark-ring"),weight:2,fillColor:c,fillOpacity:op,opacity:1});
     m.on("click",()=>openDetail(r.id));m.addTo(markLayer);
   }
@@ -454,7 +475,7 @@ function openForm(){
       const k=myKeys();k[j.row.id]=key;store.set("ide-keys",k);
       const row=fromApi(j.row);state.rows.push(row);
       if(state.period!=="all"&&Date.now()-row.atMs>(+state.period)*864e5){state.period="all";$("#period").value="all"}
-      if(!state.on.has(row.sp)){state.on.add(row.sp);$("#chip-"+row.sp).setAttribute("aria-pressed","true")}
+      if(!state.on.has(row.sp)){state.on.add(row.sp);$("#chk-"+row.sp).checked=true;syncAll()}
       draft=null;closeSheet();render();
     }catch(e){
       btn.disabled=false;btn.textContent="この内容で投稿";
