@@ -58,7 +58,7 @@ aside{background:var(--surface);border-left:1px solid var(--line);display:flex;f
 .tally{display:flex;gap:10px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
 .tally b{color:var(--fg);font-variant-numeric:tabular-nums;font-weight:700}
 .list{flex:1;overflow-y:auto;min-height:0}
-.item{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:4px 10px;padding:10px 16px;border:0;border-bottom:1px solid var(--line);cursor:pointer;align-items:start;background:none;width:100%;text-align:left}
+.item{display:grid;grid-template-columns:15px minmax(0,1fr) auto;gap:4px 10px;padding:10px 16px;border:0;border-bottom:1px solid var(--line);cursor:pointer;align-items:start;background:none;width:100%;text-align:left}
 .item:hover{background:var(--bg)}
 .item .dot{width:12px;height:12px;border-radius:50%;background:var(--c);margin-top:4px}
 .item .t{font-weight:700}
@@ -86,6 +86,15 @@ aside{background:var(--surface);border-left:1px solid var(--line);display:flex;f
 .seg button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .seg button[aria-pressed="true"]{border-color:var(--fg);background:var(--surface);font-weight:700;box-shadow:inset 0 0 0 1px var(--fg)}
 .seg .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+/* クマだけは丸ではなく顔のアイコン */
+.dot.ico{background:none!important;box-shadow:none!important;border-radius:0;width:18px;height:18px;display:inline-block;flex:none}
+.item .dot.ico{width:18px;height:18px;margin-top:1px;margin-left:-3px}
+.dot.ico svg,.bear-mk svg{width:100%;height:100%;display:block}
+.bear-ico .b{fill:var(--bear);stroke:var(--mark-ring);stroke-width:1.1;paint-order:stroke}
+.bear-ico .s{fill:#d9c3a5}
+.bear-ico .e{fill:#ffffff}
+.bear-ico .n{fill:var(--bear)}
+.bear-mk{width:30px;height:30px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
 input[type=text],input[type=number],input[type=datetime-local],textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 10px}
 textarea{min-height:72px;resize:vertical}
 .where{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
@@ -161,6 +170,8 @@ const CFG = Object.assign({API_URL:"",TITLE:"伊手 鳥獣出没マップ",SUBTI
 const API = (CFG.API_URL||"").trim();
 const SPECIES=[{k:"bear",n:"クマ"},{k:"deer",n:"シカ"},{k:"boar",n:"イノシシ"},{k:"monkey",n:"サル"},{k:"other",n:"その他"}];
 const SPN=Object.fromEntries(SPECIES.map(s=>[s.k,s.n]));
+const BEAR_SVG='<svg class="bear-ico" viewBox="0 0 24 24" aria-hidden="true"><circle class="b" cx="5.6" cy="6.2" r="3.4"/><circle class="b" cx="18.4" cy="6.2" r="3.4"/><ellipse class="b" cx="12" cy="13.4" rx="8.6" ry="8"/><circle class="e" cx="8.6" cy="11.3" r="1.25"/><circle class="e" cx="15.4" cy="11.3" r="1.25"/><ellipse class="s" cx="12" cy="16.3" rx="3.9" ry="3"/><ellipse class="n" cx="12" cy="15.1" rx="1.6" ry="1.1"/></svg>';
+const dotHtml=k=>k==="bear"?`<span class="dot ico">${BEAR_SVG}</span>`:'<span class="dot"></span>';
 const SPK=Object.fromEntries(SPECIES.map(s=>[s.n,s.k]));
 const KINDS=["目撃","痕跡(足跡・フン)","農作物の被害","人身・物損"];
 const PERIODS=[["7","7日以内"],["30","30日以内"],["365","1年以内"],["all","すべて"]];
@@ -181,7 +192,7 @@ function buildFilters(){
   for(const s of SPECIES){
     const b=document.createElement("button");b.type="button";b.className="chip";b.id="chip-"+s.k;
     b.style.setProperty("--c",`var(--${s.k})`);b.setAttribute("aria-pressed",state.on.has(s.k));
-    b.innerHTML=`<span class="dot"></span>${s.n}`;
+    b.innerHTML=`${dotHtml(s.k)}${s.n}`;
     b.onclick=()=>{state.on.has(s.k)?state.on.delete(s.k):state.on.add(s.k);b.setAttribute("aria-pressed",state.on.has(s.k));render()};
     f.appendChild(b);
   }
@@ -260,7 +271,9 @@ function drawMarks(){
   markLayer.clearLayers();
   for(const r of visibleRows().slice().reverse()){
     const c=css("--"+r.sp)||css("--other"),op=ageOpacity(r.atMs||0);
-    const m=L.circleMarker([r.lat,r.lng],{renderer:canvas,radius:r.sp==="bear"?9:7.5,color:css("--mark-ring"),weight:2,fillColor:c,fillOpacity:op,opacity:1});
+    const m=r.sp==="bear"
+      ?L.marker([r.lat,r.lng],{zIndexOffset:500,title:"クマ",icon:L.divIcon({className:"",html:`<div class="bear-mk" style="opacity:${op}">${BEAR_SVG}</div>`,iconSize:[30,30],iconAnchor:[15,15]})})
+      :L.circleMarker([r.lat,r.lng],{renderer:canvas,radius:7.5,color:css("--mark-ring"),weight:2,fillColor:c,fillOpacity:op,opacity:1});
     m.on("click",()=>openDetail(r.id));m.addTo(markLayer);
   }
 }
@@ -281,7 +294,7 @@ function render(){
       const b=document.createElement("button");b.type="button";b.className="item";b.style.setProperty("--c",`var(--${r.sp})`);
       const where=[r.ku,r.m].filter(Boolean).join("・")||"地区内";
       const name=r.sp==="other"&&r.spOther?r.spOther:SPN[r.sp];
-      b.innerHTML=`<span class="dot"></span><span><span class="t">${esc(name)}${r.n>1?" "+r.n+"頭":""}</span><span class="k">${esc(r.kind)}</span>${r.photo?'<span class="cam">写真</span>':""}<br><span class="w">${esc(where)}${r.note?"|"+esc(r.note.slice(0,28))+(r.note.length>28?"…":""):""}</span></span><span class="d">${fmt(r.atMs)}</span>`;
+      b.innerHTML=`${dotHtml(r.sp)}<span><span class="t">${esc(name)}${r.n>1?" "+r.n+"頭":""}</span><span class="k">${esc(r.kind)}</span>${r.photo?'<span class="cam">写真</span>':""}<br><span class="w">${esc(where)}${r.note?"|"+esc(r.note.slice(0,28))+(r.note.length>28?"…":""):""}</span></span><span class="d">${fmt(r.atMs)}</span>`;
       b.onclick=()=>{map.setView([r.lat,r.lng],Math.max(map.getZoom(),16));openDetail(r.id)};
       list.appendChild(b);
     }
@@ -397,7 +410,7 @@ function openForm(){
   const where=draft.r!=null?`<b>${esc(draft.ku)}</b>${draft.m?`・${draft.m}(筆 ${draft.fid})`:"・筆の外(山林・道路など)"}`:"<b>伊手地区の外</b>(境界付近)";
   f.innerHTML=`
     <div class="where">場所:${where}<br><span class="note">${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}${draft.acc?`(誤差 約${draft.acc}m)`:""}</span> <button type="button" class="linkbtn" id="rePick">地図で選び直す</button></div>
-    <div class="field"><span class="lab">動物</span><div class="seg" id="segSp">${SPECIES.map(s=>`<button type="button" data-v="${s.k}" style="--c:var(--${s.k})" aria-pressed="${draft.sp===s.k}"><span class="dot"></span>${s.n}</button>`).join("")}</div></div>
+    <div class="field"><span class="lab">動物</span><div class="seg" id="segSp">${SPECIES.map(s=>`<button type="button" data-v="${s.k}" style="--c:var(--${s.k})" aria-pressed="${draft.sp===s.k}">${dotHtml(s.k)}${s.n}</button>`).join("")}</div></div>
     <div class="field" id="otherWrap" ${draft.sp==="other"?"":"hidden"}><label for="fOther">動物の名前</label><input type="text" id="fOther" maxlength="30" placeholder="例:カモシカ、ハクビシン"></div>
     <div class="field"><span class="lab">内容</span><div class="seg" id="segKind">${KINDS.map(k=>`<button type="button" data-v="${k}" aria-pressed="${draft.kind===k}">${k}</button>`).join("")}</div></div>
     <div style="display:grid;grid-template-columns:90px minmax(0,1fr);gap:10px">
